@@ -11,7 +11,7 @@ File: _base.py
 Author: Panyi Dong (panyid2@illinois.edu)
 
 -----
-Last Modified: Wednesday, 9th November 2022 6:27:09 pm
+Last Modified: Thursday, 10th November 2022 1:49:22 pm
 Modified By: Panyi Dong (panyid2@illinois.edu)
 
 -----
@@ -39,7 +39,10 @@ SOFTWARE.
 """
 
 # import ray
-from ray import tune
+# Update: Nov. 10, 2022
+# Try to bump ray to beyond 2.0.0, and below is the guideline of transforming the code.
+# https://docs.google.com/document/d/1o-J5UAeH4M5gGN9BwdrCt1q-nLe58mp94xsmTaW0Flc/edit#
+from ray import air, tune
 
 import os
 import datetime
@@ -1381,18 +1384,44 @@ class AutoTabularBase:
 
             # optimization process
             # partially activated objective function
-            # special treatment for optuna, embed search space in search algorithm
-            if self.search_algo in ["Optuna"]:
-                fit_analysis = tune.run(
-                    trainer,
-                    # config=hyperparameter_space,
-                    name=self.model_name,  # name of the tuning process, use model_name
-                    resume="AUTO",
-                    checkpoint_freq=8,  # disable checkpoint
+            resume="AUTO" # use Tuner.restore to restore the model
+            # raise_on_failed_trial=False,
+            
+            # Update: Nov. 10, 2022
+            # try to bump ray to >2.0.0, trial_dirname_creator not implemented
+            # TODO: wait for the update on ray and bump the version
+            # track: https://github.com/ray-project/ray/pull/30123
+            # trial_dirname_creator=trial_str_creator
+                        
+            # New tuning structure after ray 2.0.0
+            # set up run_config, checkpoint_config and failure_config
+            run_config = air.RunConfig(
+                name = self.model_name, # name of the tuning process, use model_name
+                stop=stopper,  # use stopper
+                callbacks=logger,
+                progress_reporter=progress_reporter,
+                verbose=self.verbose,
+                local_dir=self.sub_directory,
+                log_to_file=True,
+                checkpoint_config=air.CheckpointConfig(
+                    checkpoint_frequency = 8,  # disable checkpoint
                     checkpoint_at_end=True,
-                    keep_checkpoints_num=4,
-                    checkpoint_score_attr="loss",
-                    # mode="min",  # always call a minimization process
+                    num_to_keep = 4,
+                    checkpoint_score_attribute = "loss",
+                ),
+                failure_config=air.FailureConfig(
+                    max_failures=self.max_error,
+                ),
+            )
+            # for this case, embed search space into search algorithm
+            if self.search_algo in ["Optuna"] :
+                # set up tune_config
+                tune_config = tune.TuneConfig(
+                    num_samples=self.max_evals,
+                    # time_budget_s=self.timeout,  # included in stopper
+                    mode="min",  # always call a minimization process
+                    metric="loss",
+                    param_space = hyperparameter_space,
                     search_alg=algo(
                         space=hyperparameter_space,
                         mode="min",  # always call a minimization process
@@ -1401,47 +1430,35 @@ class AutoTabularBase:
                     ),
                     scheduler=scheduler(**self.search_scheduler_settings),
                     reuse_actors=True,
-                    raise_on_failed_trial=False,
-                    # metric="loss",
-                    num_samples=self.max_evals,
-                    max_failures=self.max_error,
-                    stop=stopper,  # use stopper
-                    callbacks=logger,
-                    # time_budget_s=self.timeout,  # included in stopper
-                    progress_reporter=progress_reporter,
-                    verbose=self.verbose,
-                    trial_dirname_creator=trial_str_creator,
-                    local_dir=self.sub_directory,
-                    log_to_file=True,
                 )
-            else :
-                fit_analysis = tune.run(
+                # set up Tuner
+                tuner = tune.Tuner(
                     trainer,
-                    config=hyperparameter_space,
-                    name=self.model_name,  # name of the tuning process, use model_name
-                    resume="AUTO",
-                    checkpoint_freq=8,  # disable checkpoint
-                    checkpoint_at_end=True,
-                    keep_checkpoints_num=4,
-                    checkpoint_score_attr="loss",
+                    tune_config=tune_config,
+                    run_config=run_config,
+                )
+            # for this case, directly put into Tuner
+            else :
+                # set up tune_config
+                tune_config = tune.TuneConfig(
+                    num_samples=self.max_evals,
+                    # time_budget_s=self.timeout,  # included in stopper
                     mode="min",  # always call a minimization process
+                    metric="loss",
                     search_alg=algo(**self.search_algo_settings),
                     scheduler=scheduler(**self.search_scheduler_settings),
                     reuse_actors=True,
-                    raise_on_failed_trial=False,
-                    metric="loss",
-                    num_samples=self.max_evals,
-                    max_failures=self.max_error,
-                    stop=stopper,  # use stopper
-                    callbacks=logger,
-                    # time_budget_s=self.timeout,  # included in stopper
-                    progress_reporter=progress_reporter,
-                    verbose=self.verbose,
-                    trial_dirname_creator=trial_str_creator,
-                    local_dir=self.sub_directory,
-                    log_to_file=True,
                 )
-
+                # set up Tuner
+                tuner = tune.Tuner(
+                    trainer,
+                    param_space = hyperparameter_space,
+                    tune_config=tune_config,
+                    run_config=run_config,
+                )
+            
+            fit_analysis = tuner.fit()
+            
             # shut down ray
             # ray.shutdown()
             # # check if ray is shutdown
@@ -1450,7 +1467,7 @@ class AutoTabularBase:
 
             # get the best config settings
             best_trial_id = str(
-                fit_analysis.get_best_trial(
+                fit_analysis.get_best_result(
                     metric="loss", mode="min", scope="all"
                 ).trial_id
             )
@@ -1503,18 +1520,44 @@ class AutoTabularBase:
             
             # optimization process
             # partially activated objective function
-            # special treatment for optuna, embed search space in search algorithm
-            if self.search_algo in ["Optuna"]:
-                fit_analysis = tune.run(
-                    trainer,
-                    # config=hyperparameter_space,
-                    name=self.model_name,  # name of the tuning process, use model_name
-                    resume="AUTO",
-                    checkpoint_freq=8,  # disable checkpoint
+            resume="AUTO" # use Tuner.restore to restore the model
+            # raise_on_failed_trial=False,
+            
+            # Update: Nov. 10, 2022
+            # try to bump ray to >2.0.0, trial_dirname_creator not implemented
+            # TODO: wait for the update on ray and bump the version
+            # track: https://github.com/ray-project/ray/pull/30123
+            # trial_dirname_creator=trial_str_creator
+                        
+            # New tuning structure after ray 2.0.0
+            # set up run_config, checkpoint_config and failure_config
+            run_config = air.RunConfig(
+                name = self.model_name, # name of the tuning process, use model_name
+                stop=stopper,  # use stopper
+                callbacks=logger,
+                progress_reporter=progress_reporter,
+                verbose=self.verbose,
+                local_dir=self.sub_directory,
+                log_to_file=True,
+                checkpoint_config=air.CheckpointConfig(
+                    checkpoint_frequency = 8,  # disable checkpoint
                     checkpoint_at_end=True,
-                    keep_checkpoints_num=4,
-                    checkpoint_score_attr="loss",
-                    # mode="min",  # always call a minimization process
+                    num_to_keep = 4,
+                    checkpoint_score_attribute = "loss",
+                ),
+                failure_config=air.FailureConfig(
+                    max_failures=self.max_error,
+                ),
+            )
+            # for this case, embed search space into search algorithm
+            if self.search_algo in ["Optuna"] :
+                # set up tune_config
+                tune_config = tune.TuneConfig(
+                    num_samples=self.max_evals,
+                    # time_budget_s=self.timeout,  # included in stopper
+                    mode="min",  # always call a minimization process
+                    metric="loss",
+                    param_space = hyperparameter_space,
                     search_alg=algo(
                         space=hyperparameter_space,
                         mode="min",  # always call a minimization process
@@ -1523,52 +1566,41 @@ class AutoTabularBase:
                     ),
                     scheduler=scheduler(**self.search_scheduler_settings),
                     reuse_actors=True,
-                    raise_on_failed_trial=False,
-                    # metric="loss",
-                    num_samples=self.max_evals,
-                    max_failures=self.max_error,
-                    stop=stopper,  # use stopper
-                    callbacks=logger,
-                    # time_budget_s=self.timeout,  # included in stopper
-                    progress_reporter=progress_reporter,
-                    verbose=self.verbose,
-                    trial_dirname_creator=trial_str_creator,
-                    local_dir=self.sub_directory,
-                    log_to_file=True,
                 )
-            else :
-                fit_analysis = tune.run(
+                # set up Tuner
+                tuner = tune.Tuner(
                     trainer,
-                    config=hyperparameter_space,
-                    name=self.model_name,  # name of the tuning process, use model_name
-                    resume="AUTO",
-                    checkpoint_freq=8,  # disable checkpoint
-                    checkpoint_at_end=True,
-                    keep_checkpoints_num=4,
-                    checkpoint_score_attr="loss",
+                    tune_config=tune_config,
+                    run_config=run_config,
+                )
+            # for this case, directly put into Tuner
+            else :
+                # set up tune_config
+                tune_config = tune.TuneConfig(
+                    num_samples=self.max_evals,
+                    # time_budget_s=self.timeout,  # included in stopper
                     mode="min",  # always call a minimization process
+                    metric="loss",
                     search_alg=algo(**self.search_algo_settings),
                     scheduler=scheduler(**self.search_scheduler_settings),
                     reuse_actors=True,
-                    raise_on_failed_trial=False,
-                    metric="loss",
-                    num_samples=self.max_evals,
-                    max_failures=self.max_error,
-                    stop=stopper,  # use stopper
-                    callbacks=logger,
-                    # time_budget_s=self.timeout,  # included in stopper
-                    progress_reporter=progress_reporter,
-                    verbose=self.verbose,
-                    trial_dirname_creator=trial_str_creator,
-                    local_dir=self.sub_directory,
-                    log_to_file=True,
                 )
+                # set up Tuner
+                tuner = tune.Tuner(
+                    trainer,
+                    param_space = hyperparameter_space,
+                    tune_config=tune_config,
+                    run_config=run_config,
+                )
+                
+            fit_analysis = tuner.fit()
 
             # shut down ray
             rayStatus.ray_shutdown()
 
             # get all configs, trial_id
-            analysis_df = fit_analysis.dataframe(metric="loss", mode="min")
+            analysis_df = fit_analysis.get_dataframe(filter_metric="loss", filter_mode="min")
+            # analysis_df.to_csv("analysis_df.csv", index=False)
 
             # reformat config to dict
             analysis_df["config"] = analysis_df.apply(
@@ -1648,81 +1680,88 @@ class AutoTabularBase:
 
                 # optimization process
                 # partially activated objective function
-                # special treatment for optuna, embed search space in search algorithm
-                if self.search_algo in ["Optuna"]:
-                    fit_analysis = tune.run(
-                        trainer,
-                        # config=hyperparameter_space,
-                        name=self.model_name
-                        + "_"
-                        + self.ensemble_strategy
-                        + "_"
-                        + str(_n + 1),  # name of the tuning process, use model_name
-                        resume="AUTO",
-                        checkpoint_freq=8,  # disable checkpoint
+                # change the name of the model
+                resume="AUTO" # use Tuner.restore to restore the model
+                # raise_on_failed_trial=False,
+                
+                # Update: Nov. 10, 2022
+                # try to bump ray to >2.0.0, trial_dirname_creator not implemented
+                # TODO: wait for the update on ray and bump the version
+                # track: https://github.com/ray-project/ray/pull/30123
+                # trial_dirname_creator=trial_str_creator
+                            
+                # New tuning structure after ray 2.0.0
+                # set up run_config, checkpoint_config and failure_config
+                run_config = air.RunConfig(
+                    name = self.model_name + "_" + self.ensemble_strategy + "_" + str(_n + 1), # name of the tuning process
+                    stop=stopper,  # use stopper
+                    callbacks=logger,
+                    progress_reporter=progress_reporter,
+                    verbose=self.verbose,
+                    local_dir=self.sub_directory,
+                    log_to_file=True,
+                    checkpoint_config=air.CheckpointConfig(
+                        checkpoint_frequency = 8,  # disable checkpoint
                         checkpoint_at_end=True,
-                        keep_checkpoints_num=4,
-                        checkpoint_score_attr="loss",
-                        # mode="min",  # always call a minimization process
+                        num_to_keep = 4,
+                        checkpoint_score_attribute = "loss",
+                    ),
+                    failure_config=air.FailureConfig(
+                        max_failures=self.max_error,
+                    ),
+                )
+                # for this case, embed search space into search algorithm
+                if self.search_algo in ["Optuna"] :
+                    # set up tune_config
+                    tune_config = tune.TuneConfig(
+                        num_samples=self.max_evals,
+                        # time_budget_s=self.timeout,  # included in stopper
+                        mode="min",  # always call a minimization process
+                        metric="loss",
+                        param_space = hyperparameter_space,
                         search_alg=algo(
                             space=hyperparameter_space,
-                            metric="loss",
                             mode="min",  # always call a minimization process
+                            metric="loss",
                             **self.search_algo_settings
                         ),
                         scheduler=scheduler(**self.search_scheduler_settings),
                         reuse_actors=True,
-                        raise_on_failed_trial=False,
-                        # metric="loss",
-                        num_samples=sub_n_trials,  # only use sub_n_trials for each of n_estimators
-                        max_failures=self.max_error,
-                        stop=stopper,  # use stopper
-                        callbacks=logger,
-                        # time_budget_s=self.timeout,  # included in stopper
-                        progress_reporter=progress_reporter,
-                        verbose=self.verbose,
-                        trial_dirname_creator=trial_str_creator,
-                        local_dir=self.sub_directory,
-                        log_to_file=True,
                     )
-                else :
-                    fit_analysis = tune.run(
+                    # set up Tuner
+                    tuner = tune.Tuner(
                         trainer,
-                        config=hyperparameter_space,
-                        name=self.model_name
-                        + "_"
-                        + self.ensemble_strategy
-                        + "_"
-                        + str(_n + 1),  # name of the tuning process, use model_name
-                        resume="AUTO",
-                        checkpoint_freq=8,  # disable checkpoint
-                        checkpoint_at_end=True,
-                        keep_checkpoints_num=4,
-                        checkpoint_score_attr="loss",
+                        tune_config=tune_config,
+                        run_config=run_config,
+                    )
+                # for this case, directly put into Tuner
+                else :
+                    # set up tune_config
+                    tune_config = tune.TuneConfig(
+                        num_samples=self.max_evals,
+                        # time_budget_s=self.timeout,  # included in stopper
                         mode="min",  # always call a minimization process
+                        metric="loss",
                         search_alg=algo(**self.search_algo_settings),
                         scheduler=scheduler(**self.search_scheduler_settings),
                         reuse_actors=True,
-                        raise_on_failed_trial=False,
-                        metric="loss",
-                        num_samples=sub_n_trials,  # only use sub_n_trials for each of n_estimators
-                        max_failures=self.max_error,
-                        stop=stopper,  # use stopper
-                        callbacks=logger,
-                        # time_budget_s=self.timeout,  # included in stopper
-                        progress_reporter=progress_reporter,
-                        verbose=self.verbose,
-                        trial_dirname_creator=trial_str_creator,
-                        local_dir=self.sub_directory,
-                        log_to_file=True,
                     )
+                    # set up Tuner
+                    tuner = tune.Tuner(
+                        trainer,
+                        param_space = hyperparameter_space,
+                        tune_config=tune_config,
+                        run_config=run_config,
+                    )
+                
+                fit_analysis = tuner.fit()
 
                 # shut down ray
                 rayStatus.ray_shutdown()
 
                 # get the best config settings
                 best_trial_id = str(
-                    fit_analysis.get_best_trial(
+                    fit_analysis.get_best_result(
                         metric="loss", mode="min", scope="all"
                     ).trial_id
                 )
@@ -1790,80 +1829,88 @@ class AutoTabularBase:
 
                 # optimization process
                 # partially activated objective function
-                if self.search_algo in ["Optuna"] :
-                    fit_analysis = tune.run(
-                        trainer,
-                        # config=hyperparameter_space,
-                        name=self.model_name
-                        + "_"
-                        + self.ensemble_strategy
-                        + "_"
-                        + str(_n + 1),  # name of the tuning process, use model_name
-                        resume="AUTO",
-                        checkpoint_freq=8,  # disable checkpoint
+                # change the name of the model
+                resume="AUTO" # use Tuner.restore to restore the model
+                # raise_on_failed_trial=False,
+                
+                # Update: Nov. 10, 2022
+                # try to bump ray to >2.0.0, trial_dirname_creator not implemented
+                # TODO: wait for the update on ray and bump the version
+                # track: https://github.com/ray-project/ray/pull/30123
+                # trial_dirname_creator=trial_str_creator
+                            
+                # New tuning structure after ray 2.0.0
+                # set up run_config, checkpoint_config and failure_config
+                run_config = air.RunConfig(
+                    name = self.model_name + "_" + self.ensemble_strategy + "_" + str(_n + 1), # name of the tuning process
+                    stop=stopper,  # use stopper
+                    callbacks=logger,
+                    progress_reporter=progress_reporter,
+                    verbose=self.verbose,
+                    local_dir=self.sub_directory,
+                    log_to_file=True,
+                    checkpoint_config=air.CheckpointConfig(
+                        checkpoint_frequency = 8,  # disable checkpoint
                         checkpoint_at_end=True,
-                        keep_checkpoints_num=4,
-                        checkpoint_score_attr="loss",
-                        # mode="min",  # always call a minimization process
+                        num_to_keep = 4,
+                        checkpoint_score_attribute = "loss",
+                    ),
+                    failure_config=air.FailureConfig(
+                        max_failures=self.max_error,
+                    ),
+                )
+                # for this case, embed search space into search algorithm
+                if self.search_algo in ["Optuna"] :
+                    # set up tune_config
+                    tune_config = tune.TuneConfig(
+                        num_samples=self.max_evals,
+                        # time_budget_s=self.timeout,  # included in stopper
+                        mode="min",  # always call a minimization process
+                        metric="loss",
+                        param_space = hyperparameter_space,
                         search_alg=algo(
-                            hyperparameter_space,
-                            metric="loss",
+                            space=hyperparameter_space,
                             mode="min",  # always call a minimization process
+                            metric="loss",
                             **self.search_algo_settings
                         ),
                         scheduler=scheduler(**self.search_scheduler_settings),
                         reuse_actors=True,
-                        raise_on_failed_trial=False,
-                        # metric="loss",
-                        num_samples=sub_n_trials,  # only use sub_n_trials for each of n_estimators
-                        max_failures=self.max_error,
-                        stop=stopper,  # use stopper
-                        callbacks=logger,
-                        # time_budget_s=self.timeout,  # included in stopper
-                        progress_reporter=progress_reporter,
-                        verbose=self.verbose,
-                        trial_dirname_creator=trial_str_creator,
-                        local_dir=self.sub_directory,
-                        log_to_file=True,
                     )
-                else :
-                    fit_analysis = tune.run(
+                    # set up Tuner
+                    tuner = tune.Tuner(
                         trainer,
-                        config=hyperparameter_space,
-                        name=self.model_name
-                        + "_"
-                        + self.ensemble_strategy
-                        + "_"
-                        + str(_n + 1),  # name of the tuning process, use model_name
-                        resume="AUTO",
-                        checkpoint_freq=8,  # disable checkpoint
-                        checkpoint_at_end=True,
-                        keep_checkpoints_num=4,
-                        checkpoint_score_attr="loss",
+                        tune_config=tune_config,
+                        run_config=run_config,
+                    )
+                # for this case, directly put into Tuner
+                else :
+                    # set up tune_config
+                    tune_config = tune.TuneConfig(
+                        num_samples=self.max_evals,
+                        # time_budget_s=self.timeout,  # included in stopper
                         mode="min",  # always call a minimization process
+                        metric="loss",
                         search_alg=algo(**self.search_algo_settings),
                         scheduler=scheduler(**self.search_scheduler_settings),
                         reuse_actors=True,
-                        raise_on_failed_trial=False,
-                        metric="loss",
-                        num_samples=sub_n_trials,  # only use sub_n_trials for each of n_estimators
-                        max_failures=self.max_error,
-                        stop=stopper,  # use stopper
-                        callbacks=logger,
-                        # time_budget_s=self.timeout,  # included in stopper
-                        progress_reporter=progress_reporter,
-                        verbose=self.verbose,
-                        trial_dirname_creator=trial_str_creator,
-                        local_dir=self.sub_directory,
-                        log_to_file=True,
                     )
+                    # set up Tuner
+                    tuner = tune.Tuner(
+                        trainer,
+                        param_space = hyperparameter_space,
+                        tune_config=tune_config,
+                        run_config=run_config,
+                    )
+                    
+                fit_analysis = tuner.fit()
 
                 # shut down ray
                 rayStatus.ray_shutdown()
 
                 # get the best config settings
                 best_trial_id = str(
-                    fit_analysis.get_best_trial(
+                    fit_analysis.get_best_result(
                         metric="loss", mode="min", scope="all"
                     ).trial_id
                 )

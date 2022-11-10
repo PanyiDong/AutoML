@@ -11,7 +11,7 @@ File: _optimize.py
 Author: Panyi Dong (panyid2@illinois.edu)
 
 -----
-Last Modified: Thursday, 10th November 2022 12:03:05 am
+Last Modified: Thursday, 10th November 2022 1:45:13 pm
 Modified By: Panyi Dong (panyid2@illinois.edu)
 
 -----
@@ -406,7 +406,7 @@ def _optuna_get_hyperparameter_space(
         )
         
     import optuna
-    from ray.tune.suggest.optuna import OptunaSearch
+    from ray.tune.search.optuna import OptunaSearch
         
     # config space
     # encoding space
@@ -607,7 +607,7 @@ def _nevergrad_get_hyperparameter_space(
         )
         
     import nevergrad as ng
-    from ray.tune.suggest.nevergrad import NevergradSearch
+    from ray.tune.search.nevergrad import NevergradSearch
     
     # encoding space
     # get all method names in hyperparameter space
@@ -762,7 +762,7 @@ def _nevergrad_get_hyperparameter_space(
 #             Command to install: pip install scikit-optimize"
 #         )
         
-#     from ray.tune.suggest.skopt import SkOptSearch
+#     from ray.tune.search.skopt import SkOptSearch
     
 #     # encoding space
 #     # get all method names in hyperparameter space
@@ -993,7 +993,7 @@ def get_algo(search_algo):
     if search_algo == "RandomSearch" or search_algo == "GridSearch":
 
         # Random Search and Grid Search
-        from ray.tune.suggest.basic_variant import BasicVariantGenerator
+        from ray.tune.search.basic_variant import BasicVariantGenerator
 
         algo = BasicVariantGenerator
     # Update: Nov. 9, 2022
@@ -1015,7 +1015,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Bayesian Search
-    #     from ray.tune.suggest.bayesopt import BayesOptSearch
+    #     from ray.tune.search.bayesopt import BayesOptSearch
 
     #     algo = BayesOptSearch
     # elif search_algo == "AxSearch":
@@ -1030,7 +1030,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Ax Search
-    #     from ray.tune.suggest.ax import AxSearch
+    #     from ray.tune.search.ax import AxSearch
 
     #     algo = AxSearch
     # elif search_algo == "BOHB":
@@ -1045,7 +1045,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Bayesian Optimization HyperBand/BOHB
-    #     from ray.tune.suggest.bohb import TuneBOHB
+    #     from ray.tune.search.bohb import TuneBOHB
 
     #     algo = TuneBOHB
     elif search_algo == "BlendSearch":
@@ -1058,7 +1058,7 @@ def get_algo(search_algo):
             )
 
         # Blend Search
-        from ray.tune.suggest.flaml import BlendSearch
+        from ray.tune.search.flaml import BlendSearch
 
         algo = BlendSearch
     elif search_algo == "CFO":
@@ -1071,7 +1071,7 @@ def get_algo(search_algo):
             )
 
         # Blend Search
-        from ray.tune.suggest.flaml import CFO
+        from ray.tune.search.flaml import CFO
 
         algo = CFO
     # elif search_algo == "DragonflySearch":
@@ -1085,7 +1085,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Dragonfly Search
-    #     from ray.tune.suggest.dragonfly import DragonflySearch
+    #     from ray.tune.search.dragonfly import DragonflySearch
 
     #     algo = DragonflySearch
     # elif search_algo == "HEBO":
@@ -1099,7 +1099,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Heteroscedastic Evolutionary Bayesian Optimization/HEBO
-    #     from ray.tune.suggest.hebo import HEBOSearch
+    #     from ray.tune.search.hebo import HEBOSearch
 
     #     algo = HEBOSearch
     elif search_algo == "HyperOpt":
@@ -1112,7 +1112,7 @@ def get_algo(search_algo):
             )
 
         # HyperOpt Search
-        from ray.tune.suggest.hyperopt import HyperOptSearch
+        from ray.tune.search.hyperopt import HyperOptSearch
 
         algo = HyperOptSearch
     elif search_algo == "Nevergrad":
@@ -1125,7 +1125,7 @@ def get_algo(search_algo):
             )
 
         # Nevergrad Search
-        from ray.tune.suggest.nevergrad import NevergradSearch
+        from ray.tune.search.nevergrad import NevergradSearch
 
         algo = NevergradSearch
     # default hyeprparameter space can not be easily converted
@@ -1139,7 +1139,7 @@ def get_algo(search_algo):
             )
 
         # Optuna Search
-        from ray.tune.suggest.optuna import OptunaSearch
+        from ray.tune.search.optuna import OptunaSearch
 
         algo = OptunaSearch
     # elif search_algo == "SigOpt":
@@ -1154,7 +1154,7 @@ def get_algo(search_algo):
     #         )
 
     #     # SigOpt Search
-    #     from ray.tune.suggest.sigopt import SigOptSearch
+    #     from ray.tune.search.sigopt import SigOptSearch
 
     #     algo = SigOptSearch
     # Update: Nov. 9, 2022
@@ -1170,7 +1170,7 @@ def get_algo(search_algo):
     #         )
 
     #     # Scikit-Optimize Search
-    #     from ray.tune.suggest.skopt import SkOptSearch
+    #     from ray.tune.search.skopt import SkOptSearch
 
     #     algo = SkOptSearch
     # elif search_algo == "ZOOpt":
@@ -1184,19 +1184,19 @@ def get_algo(search_algo):
     #         )
 
     #     # ZOOpt Search
-    #     from ray.tune.suggest.zoopt import ZOOptSearch
+    #     from ray.tune.search.zoopt import ZOOptSearch
 
     #     algo = ZOOptSearch
     elif search_algo == "Repeater":
 
         # Repeated Evaluations
-        from ray.tune.suggest import Repeater
+        from ray.tune.search import Repeater
 
         algo = Repeater
     elif search_algo == "ConcurrencyLimiter":
 
         # ConcurrencyLimiter
-        from ray.tune.suggest import ConcurrencyLimiter
+        from ray.tune.search import ConcurrencyLimiter
 
         algo = ConcurrencyLimiter
     else:
