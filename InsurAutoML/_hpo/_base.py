@@ -11,7 +11,7 @@ File: _base.py
 Author: Panyi Dong (panyid2@illinois.edu)
 
 -----
-Last Modified: Thursday, 10th November 2022 1:49:22 pm
+Last Modified: Tuesday, 15th November 2022 6:42:50 pm
 Modified By: Panyi Dong (panyid2@illinois.edu)
 
 -----
@@ -62,10 +62,7 @@ from InsurAutoML._hpo._utils import (
 )
 from InsurAutoML._constant import UNI_CLASS, MAX_TIME
 from InsurAutoML._base import no_processing
-from InsurAutoML._utils._base import (
-    type_of_script,
-    format_hyper_dict
-)
+from InsurAutoML._utils._base import type_of_script, format_hyper_dict
 from InsurAutoML._utils._file import (
     save_methods,
     load_methods,
@@ -541,7 +538,7 @@ class AutoTabularBase:
             feature_selection_hyperparameter,
             classifier_hyperparameter,
             regressor_hyperparameter,
-        )            
+        )
 
         from additional import (
             add_encoder_hyperparameter,
@@ -564,9 +561,9 @@ class AutoTabularBase:
         # _all_encoders_hyperparameters = copy.deepcopy(self._all_encoders_hyperparameters)
 
         # all hyperparameters for imputers
-        if "no_processing" in imputer.keys() :
+        if "no_processing" in imputer.keys():
             _all_imputers_hyperparameters = [{"imputer": "no_processing"}]
-        else :
+        else:
             _all_imputers_hyperparameters = copy.deepcopy(imputer_hyperparameter)
         # include additional hyperparameters
         _all_imputers_hyperparameters += add_imputer_hyperparameter
@@ -647,9 +644,7 @@ class AutoTabularBase:
                     if len(pd.unique(y.to_numpy().flatten())) == 2:
                         from InsurAutoML._constant import LIGHTGBM_BINARY_CLASSIFICATION
 
-                        item["objective"] = tune.choice(
-                            LIGHTGBM_BINARY_CLASSIFICATION
-                        )
+                        item["objective"] = tune.choice(LIGHTGBM_BINARY_CLASSIFICATION)
                     else:
                         from InsurAutoML._constant import (
                             LIGHTGBM_MULTICLASS_CLASSIFICATION,
@@ -658,41 +653,57 @@ class AutoTabularBase:
                         item["objective"] = tune.choice(
                             LIGHTGBM_MULTICLASS_CLASSIFICATION
                         )
-                        
+
         # check status of hyperparameter space
-        check_status(encoder, _all_encoders_hyperparameters, ref = "encoder")
-        check_status(imputer, _all_imputers_hyperparameters, ref = "imputer")
-        check_status(balancing, _all_balancings_hyperparameters, ref = "balancing")
-        check_status(scaling, _all_scalings_hyperparameters, ref = "scaling")
-        check_status(feature_selection, _all_feature_selection_hyperparameters, ref = "feature_selection")
-        check_status(models, _all_models_hyperparameters, ref = "model")
-                        
+        check_status(encoder, _all_encoders_hyperparameters, ref="encoder")
+        check_status(imputer, _all_imputers_hyperparameters, ref="imputer")
+        check_status(balancing, _all_balancings_hyperparameters, ref="balancing")
+        check_status(scaling, _all_scalings_hyperparameters, ref="scaling")
+        check_status(
+            feature_selection,
+            _all_feature_selection_hyperparameters,
+            ref="feature_selection",
+        )
+        check_status(models, _all_models_hyperparameters, ref="model")
+
         # format default search space
         _all_encoders_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "encoder", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="encoder", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_encoders_hyperparameters)
         ]
         _all_imputers_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "imputer", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="imputer", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_imputers_hyperparameters)
         ]
         _all_balancings_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "balancing", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="balancing", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_balancings_hyperparameters)
         ]
         _all_scalings_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "scaling", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="scaling", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_scalings_hyperparameters)
         ]
         _all_feature_selection_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "feature_selection", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="feature_selection", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_feature_selection_hyperparameters)
         ]
         _all_models_hyperparameters = [
-            format_hyper_dict(dict, order + 1, ref = "model", search_algo = self.search_algo)
+            format_hyper_dict(
+                dict, order + 1, ref="model", search_algo=self.search_algo
+            )
             for order, dict in enumerate(_all_models_hyperparameters)
         ]
-                        
+
         # generate the hyperparameter space
         hyperparameter_space = _get_hyperparameter_space(
             X,
@@ -796,7 +807,7 @@ class AutoTabularBase:
 
     # select optimal settings and fit on optimal hyperparameters
     def _fit_optimal(self, idx, optimal_point, best_path):
-        
+
         # optimal encoder
         optimal_encoder_hyperparameters = optimal_point["encoder"]
         # find optimal encoder key
@@ -1297,7 +1308,7 @@ class AutoTabularBase:
             import nevergrad as ng
 
             self.search_algo_settings = {"optimizer": ng.optimizers.OnePlusOne}
-        
+
         # get search scheduler
         scheduler = get_scheduler(self.search_scheduler)
 
@@ -1384,19 +1395,19 @@ class AutoTabularBase:
 
             # optimization process
             # partially activated objective function
-            resume="AUTO" # use Tuner.restore to restore the model
+            resume = "AUTO"  # use Tuner.restore to restore the model
             # raise_on_failed_trial=False,
-            
+
             # Update: Nov. 10, 2022
             # try to bump ray to >2.0.0, trial_dirname_creator not implemented
             # TODO: wait for the update on ray and bump the version
             # track: https://github.com/ray-project/ray/pull/30123
             # trial_dirname_creator=trial_str_creator
-                        
+
             # New tuning structure after ray 2.0.0
             # set up run_config, checkpoint_config and failure_config
             run_config = air.RunConfig(
-                name = self.model_name, # name of the tuning process, use model_name
+                name=self.model_name,  # name of the tuning process, use model_name
                 stop=stopper,  # use stopper
                 callbacks=logger,
                 progress_reporter=progress_reporter,
@@ -1404,24 +1415,24 @@ class AutoTabularBase:
                 local_dir=self.sub_directory,
                 log_to_file=True,
                 checkpoint_config=air.CheckpointConfig(
-                    checkpoint_frequency = 8,  # disable checkpoint
+                    checkpoint_frequency=8,  # disable checkpoint
                     checkpoint_at_end=True,
-                    num_to_keep = 4,
-                    checkpoint_score_attribute = "loss",
+                    num_to_keep=4,
+                    checkpoint_score_attribute="loss",
                 ),
                 failure_config=air.FailureConfig(
                     max_failures=self.max_error,
                 ),
             )
             # for this case, embed search space into search algorithm
-            if self.search_algo in ["Optuna"] :
+            if self.search_algo in ["Optuna"]:
                 # set up tune_config
                 tune_config = tune.TuneConfig(
                     num_samples=self.max_evals,
                     # time_budget_s=self.timeout,  # included in stopper
                     mode="min",  # always call a minimization process
                     metric="loss",
-                    param_space = hyperparameter_space,
+                    param_space=hyperparameter_space,
                     search_alg=algo(
                         space=hyperparameter_space,
                         mode="min",  # always call a minimization process
@@ -1430,6 +1441,7 @@ class AutoTabularBase:
                     ),
                     scheduler=scheduler(**self.search_scheduler_settings),
                     reuse_actors=True,
+                    trial_dirname_creator=lambda trial: trial_str_creator(trial),
                 )
                 # set up Tuner
                 tuner = tune.Tuner(
@@ -1438,7 +1450,7 @@ class AutoTabularBase:
                     run_config=run_config,
                 )
             # for this case, directly put into Tuner
-            else :
+            else:
                 # set up tune_config
                 tune_config = tune.TuneConfig(
                     num_samples=self.max_evals,
@@ -1452,13 +1464,13 @@ class AutoTabularBase:
                 # set up Tuner
                 tuner = tune.Tuner(
                     trainer,
-                    param_space = hyperparameter_space,
+                    param_space=hyperparameter_space,
                     tune_config=tune_config,
                     run_config=run_config,
                 )
-            
+
             fit_analysis = tuner.fit()
-            
+
             # shut down ray
             # ray.shutdown()
             # # check if ray is shutdown
@@ -1517,22 +1529,22 @@ class AutoTabularBase:
 
             # subtrial directory
             self.sub_directory = self.temp_directory
-            
+
             # optimization process
             # partially activated objective function
-            resume="AUTO" # use Tuner.restore to restore the model
+            resume = "AUTO"  # use Tuner.restore to restore the model
             # raise_on_failed_trial=False,
-            
+
             # Update: Nov. 10, 2022
             # try to bump ray to >2.0.0, trial_dirname_creator not implemented
             # TODO: wait for the update on ray and bump the version
             # track: https://github.com/ray-project/ray/pull/30123
             # trial_dirname_creator=trial_str_creator
-                        
+
             # New tuning structure after ray 2.0.0
             # set up run_config, checkpoint_config and failure_config
             run_config = air.RunConfig(
-                name = self.model_name, # name of the tuning process, use model_name
+                name=self.model_name,  # name of the tuning process, use model_name
                 stop=stopper,  # use stopper
                 callbacks=logger,
                 progress_reporter=progress_reporter,
@@ -1540,24 +1552,24 @@ class AutoTabularBase:
                 local_dir=self.sub_directory,
                 log_to_file=True,
                 checkpoint_config=air.CheckpointConfig(
-                    checkpoint_frequency = 8,  # disable checkpoint
+                    checkpoint_frequency=8,  # disable checkpoint
                     checkpoint_at_end=True,
-                    num_to_keep = 4,
-                    checkpoint_score_attribute = "loss",
+                    num_to_keep=4,
+                    checkpoint_score_attribute="loss",
                 ),
                 failure_config=air.FailureConfig(
                     max_failures=self.max_error,
                 ),
             )
             # for this case, embed search space into search algorithm
-            if self.search_algo in ["Optuna"] :
+            if self.search_algo in ["Optuna"]:
                 # set up tune_config
                 tune_config = tune.TuneConfig(
                     num_samples=self.max_evals,
                     # time_budget_s=self.timeout,  # included in stopper
                     mode="min",  # always call a minimization process
                     metric="loss",
-                    param_space = hyperparameter_space,
+                    param_space=hyperparameter_space,
                     search_alg=algo(
                         space=hyperparameter_space,
                         mode="min",  # always call a minimization process
@@ -1574,7 +1586,7 @@ class AutoTabularBase:
                     run_config=run_config,
                 )
             # for this case, directly put into Tuner
-            else :
+            else:
                 # set up tune_config
                 tune_config = tune.TuneConfig(
                     num_samples=self.max_evals,
@@ -1588,18 +1600,20 @@ class AutoTabularBase:
                 # set up Tuner
                 tuner = tune.Tuner(
                     trainer,
-                    param_space = hyperparameter_space,
+                    param_space=hyperparameter_space,
                     tune_config=tune_config,
                     run_config=run_config,
                 )
-                
+
             fit_analysis = tuner.fit()
 
             # shut down ray
             rayStatus.ray_shutdown()
 
             # get all configs, trial_id
-            analysis_df = fit_analysis.get_dataframe(filter_metric="loss", filter_mode="min")
+            analysis_df = fit_analysis.get_dataframe(
+                filter_metric="loss", filter_mode="min"
+            )
             # analysis_df.to_csv("analysis_df.csv", index=False)
 
             # reformat config to dict
@@ -1681,19 +1695,23 @@ class AutoTabularBase:
                 # optimization process
                 # partially activated objective function
                 # change the name of the model
-                resume="AUTO" # use Tuner.restore to restore the model
+                resume = "AUTO"  # use Tuner.restore to restore the model
                 # raise_on_failed_trial=False,
-                
+
                 # Update: Nov. 10, 2022
                 # try to bump ray to >2.0.0, trial_dirname_creator not implemented
                 # TODO: wait for the update on ray and bump the version
                 # track: https://github.com/ray-project/ray/pull/30123
                 # trial_dirname_creator=trial_str_creator
-                            
+
                 # New tuning structure after ray 2.0.0
                 # set up run_config, checkpoint_config and failure_config
                 run_config = air.RunConfig(
-                    name = self.model_name + "_" + self.ensemble_strategy + "_" + str(_n + 1), # name of the tuning process
+                    name=self.model_name
+                    + "_"
+                    + self.ensemble_strategy
+                    + "_"
+                    + str(_n + 1),  # name of the tuning process
                     stop=stopper,  # use stopper
                     callbacks=logger,
                     progress_reporter=progress_reporter,
@@ -1701,24 +1719,24 @@ class AutoTabularBase:
                     local_dir=self.sub_directory,
                     log_to_file=True,
                     checkpoint_config=air.CheckpointConfig(
-                        checkpoint_frequency = 8,  # disable checkpoint
+                        checkpoint_frequency=8,  # disable checkpoint
                         checkpoint_at_end=True,
-                        num_to_keep = 4,
-                        checkpoint_score_attribute = "loss",
+                        num_to_keep=4,
+                        checkpoint_score_attribute="loss",
                     ),
                     failure_config=air.FailureConfig(
                         max_failures=self.max_error,
                     ),
                 )
                 # for this case, embed search space into search algorithm
-                if self.search_algo in ["Optuna"] :
+                if self.search_algo in ["Optuna"]:
                     # set up tune_config
                     tune_config = tune.TuneConfig(
                         num_samples=self.max_evals,
                         # time_budget_s=self.timeout,  # included in stopper
                         mode="min",  # always call a minimization process
                         metric="loss",
-                        param_space = hyperparameter_space,
+                        param_space=hyperparameter_space,
                         search_alg=algo(
                             space=hyperparameter_space,
                             mode="min",  # always call a minimization process
@@ -1735,7 +1753,7 @@ class AutoTabularBase:
                         run_config=run_config,
                     )
                 # for this case, directly put into Tuner
-                else :
+                else:
                     # set up tune_config
                     tune_config = tune.TuneConfig(
                         num_samples=self.max_evals,
@@ -1749,11 +1767,11 @@ class AutoTabularBase:
                     # set up Tuner
                     tuner = tune.Tuner(
                         trainer,
-                        param_space = hyperparameter_space,
+                        param_space=hyperparameter_space,
                         tune_config=tune_config,
                         run_config=run_config,
                     )
-                
+
                 fit_analysis = tuner.fit()
 
                 # shut down ray
@@ -1830,19 +1848,23 @@ class AutoTabularBase:
                 # optimization process
                 # partially activated objective function
                 # change the name of the model
-                resume="AUTO" # use Tuner.restore to restore the model
+                resume = "AUTO"  # use Tuner.restore to restore the model
                 # raise_on_failed_trial=False,
-                
+
                 # Update: Nov. 10, 2022
                 # try to bump ray to >2.0.0, trial_dirname_creator not implemented
                 # TODO: wait for the update on ray and bump the version
                 # track: https://github.com/ray-project/ray/pull/30123
                 # trial_dirname_creator=trial_str_creator
-                            
+
                 # New tuning structure after ray 2.0.0
                 # set up run_config, checkpoint_config and failure_config
                 run_config = air.RunConfig(
-                    name = self.model_name + "_" + self.ensemble_strategy + "_" + str(_n + 1), # name of the tuning process
+                    name=self.model_name
+                    + "_"
+                    + self.ensemble_strategy
+                    + "_"
+                    + str(_n + 1),  # name of the tuning process
                     stop=stopper,  # use stopper
                     callbacks=logger,
                     progress_reporter=progress_reporter,
@@ -1850,24 +1872,24 @@ class AutoTabularBase:
                     local_dir=self.sub_directory,
                     log_to_file=True,
                     checkpoint_config=air.CheckpointConfig(
-                        checkpoint_frequency = 8,  # disable checkpoint
+                        checkpoint_frequency=8,  # disable checkpoint
                         checkpoint_at_end=True,
-                        num_to_keep = 4,
-                        checkpoint_score_attribute = "loss",
+                        num_to_keep=4,
+                        checkpoint_score_attribute="loss",
                     ),
                     failure_config=air.FailureConfig(
                         max_failures=self.max_error,
                     ),
                 )
                 # for this case, embed search space into search algorithm
-                if self.search_algo in ["Optuna"] :
+                if self.search_algo in ["Optuna"]:
                     # set up tune_config
                     tune_config = tune.TuneConfig(
                         num_samples=self.max_evals,
                         # time_budget_s=self.timeout,  # included in stopper
                         mode="min",  # always call a minimization process
                         metric="loss",
-                        param_space = hyperparameter_space,
+                        param_space=hyperparameter_space,
                         search_alg=algo(
                             space=hyperparameter_space,
                             mode="min",  # always call a minimization process
@@ -1884,7 +1906,7 @@ class AutoTabularBase:
                         run_config=run_config,
                     )
                 # for this case, directly put into Tuner
-                else :
+                else:
                     # set up tune_config
                     tune_config = tune.TuneConfig(
                         num_samples=self.max_evals,
@@ -1898,11 +1920,11 @@ class AutoTabularBase:
                     # set up Tuner
                     tuner = tune.Tuner(
                         trainer,
-                        param_space = hyperparameter_space,
+                        param_space=hyperparameter_space,
                         tune_config=tune_config,
                         run_config=run_config,
                     )
-                    
+
                 fit_analysis = tuner.fit()
 
                 # shut down ray
